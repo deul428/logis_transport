@@ -1,9 +1,27 @@
 // ============================================
-// 배차 요청 자동화 시스템 - 구글 폼 응답 처리 (원본 버전 - 키워드 기반 파싱)
+// 배차 요청 자동화 시스템 - 구글 폼 응답 처리 (LLM 파싱 모드 지원)
 // ============================================
 
 // 구글 시트 ID (실제 시트 ID로 변경 필요)
-const SPREADSHEET_ID = "1A5GeS6NFPRjbQD_-jDOBjqb9spohEPG3DVoOuQGwrAg"; 
+const SPREADSHEET_ID = "1A5GeS6NFPRjbQD_-jDOBjqb9spohEPG3DVoOuQGwrAg";
+
+// ============================================
+// 파싱 모드 설정
+// ============================================
+// "KEYWORD": 키워드 기반 파싱 (기본값, 빠르고 무료)
+// "LLM": LLM 기반 파싱 (OpenAI 또는 Google Gemini, 더 정확하지만 API 비용 발생)
+const PARSING_MODE = "KEYWORD"; // "KEYWORD" 또는 "LLM"
+
+// ============================================
+// LLM 설정
+// ============================================
+// OpenAI API 사용 시
+const OPENAI_API_KEY = "YOUR_OPENAI_API_KEY"; // OpenAI API 키 입력
+const OPENAI_MODEL = "gpt-4o-mini"; // 또는 "gpt-3.5-turbo", "gpt-4" 등
+
+// Google Gemini API 사용 시 (선택사항)
+const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"; // Gemini API 키 입력
+const USE_GEMINI = false; // true로 설정하면 Gemini 사용, false면 OpenAI 사용 
 // 특정 스프레드시트 사용
 function getSpreadsheet() {
   return SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -784,12 +802,13 @@ function insertToParsedSheet(parsedData, timestamp) {
   }
 }
 
-// 원본 데이터 처리 함수
+// 원본 데이터 처리 함수 (파싱 모드에 따라 분기)
 function processRawData(content, contractNo, timestamp, sourceRow, sourceSheet) {
   try {
     Logger.log("=== 배차 요청 데이터 처리 시작 ===");
     Logger.log("원본 텍스트:", content);
     Logger.log("계약번호:", contractNo);
+    Logger.log("파싱 모드:", PARSING_MODE);
 
     if (!content || content.trim() === "") {
       Logger.log("배차 요청 내용이 없어서 처리 중단");
@@ -799,8 +818,16 @@ function processRawData(content, contractNo, timestamp, sourceRow, sourceSheet) 
       return;
     }
 
-    // 텍스트 파싱
-    const parsedData = parseTransportRequest(content, contractNo);
+    // 파싱 모드에 따라 분기
+    let parsedData;
+    if (PARSING_MODE === "LLM") {
+      Logger.log("LLM 파싱 모드 사용");
+      parsedData = parseTransportRequestWithLLM(content, contractNo);
+    } else {
+      Logger.log("키워드 기반 파싱 모드 사용");
+      parsedData = parseTransportRequest(content, contractNo);
+    }
+    
     Logger.log("파싱 결과:", parsedData);
 
     // 파싱 결과 시트에 저장
@@ -985,10 +1012,248 @@ function initializeFormResponseSheet() {
   }
 }
 
+// ============================================
+// LLM 기반 파싱 함수
+// ============================================
+
+// LLM을 사용하여 배차 요청 텍스트 파싱
+function parseTransportRequestWithLLM(text, contractNo) {
+  try {
+    Logger.log("=== LLM 기반 배차 요청 텍스트 파싱 시작 ===");
+    Logger.log("원본 텍스트:", text);
+
+    // LLM 프롬프트 생성
+    const prompt = createParsingPrompt(text, contractNo);
+    
+    // LLM 호출
+    let llmResponse;
+    if (USE_GEMINI) {
+      llmResponse = callGeminiAPI(prompt);
+    } else {
+      llmResponse = callOpenAIAPI(prompt);
+    }
+
+    if (!llmResponse) {
+      Logger.log("LLM 응답이 없어서 키워드 기반 파싱으로 폴백");
+      return parseTransportRequest(text, contractNo);
+    }
+
+    // LLM 응답 파싱
+    const parsedData = parseLLMResponse(llmResponse, contractNo);
+    Logger.log("LLM 파싱 결과:", parsedData);
+    
+    return parsedData;
+  } catch (error) {
+    Logger.log("LLM 파싱 오류:", error);
+    Logger.log("키워드 기반 파싱으로 폴백");
+    // 오류 발생 시 키워드 기반 파싱으로 폴백
+    return parseTransportRequest(text, contractNo);
+  }
+}
+
+// LLM 파싱용 프롬프트 생성
+function createParsingPrompt(text, contractNo) {
+  return `다음 배차 요청 텍스트를 분석하여 JSON 형식으로 구조화된 데이터를 추출해주세요.
+
+배차 요청 텍스트:
+"""
+${text}
+"""
+
+다음 필드들을 추출하여 JSON 형식으로 반환해주세요:
+- 운송계약번호: ${contractNo || ""}
+- 고객사명: 업체명, 고객사명 등
+- 상차일자: 상차일, 상차일자, 배차일자, 배차일 등 (YYYY-MM-DD 형식으로 변환)
+- 하차일자: 하차일, 하차일자, 하차일 등 (YYYY-MM-DD 형식으로 변환)
+- 상차지명: 상차지명, 상차지 업체명, 출발지 업체명 등
+- 상차지주소: 상차지 주소, 출발지 주소, 상차지, 출 등
+- 하차지명: 하차지명, 하차지 업체명, 도착지 업체명, 착지 업체명 등
+- 하차지주소: 하차지 주소, 도착지 주소, 하차지, 도착지, 착, 착지 등
+- 요청톤수: 요청톤수, 차량톤수, 톤수, 차량 톤수 등
+- 담당자명: 담당자 이름 (하차지 담당자 우선, 없으면 상차지 담당자)
+- 담당자연락처: 담당자 전화번호 (하차지 담당자 연락처 우선, 없으면 상차지 담당자 연락처)
+- 비고: 비고, 특이사항, 기타, 요청사항, 수작업유무 등
+
+주의사항:
+1. 날짜는 반드시 YYYY-MM-DD 형식으로 변환 (예: 25.05.27 → 2025-05-27, 5/27 → 2025-05-27)
+2. 주소와 업체명이 함께 있는 경우 분리
+3. 전화번호는 숫자와 하이픈만 포함
+4. 값이 없으면 빈 문자열("")로 반환
+5. 반드시 유효한 JSON 형식으로만 응답 (설명 없이 JSON만)
+
+JSON 형식:
+{
+  "운송계약번호": "",
+  "고객사명": "",
+  "상차일자": "",
+  "하차일자": "",
+  "상차지명": "",
+  "상차지주소": "",
+  "하차지명": "",
+  "하차지주소": "",
+  "요청톤수": "",
+  "담당자명": "",
+  "담당자연락처": "",
+  "비고": ""
+}`;
+}
+
+// OpenAI API 호출
+function callOpenAIAPI(prompt) {
+  try {
+    Logger.log("OpenAI API 호출 시작");
+    
+    if (!OPENAI_API_KEY || OPENAI_API_KEY === "YOUR_OPENAI_API_KEY") {
+      throw new Error("OpenAI API 키가 설정되지 않았습니다.");
+    }
+
+    const url = "https://api.openai.com/v1/chat/completions";
+    const payload = {
+      model: OPENAI_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: "당신은 배차 요청 텍스트를 구조화된 JSON 데이터로 변환하는 전문가입니다. 항상 유효한 JSON 형식만 반환합니다."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.3,
+      response_format: { type: "json_object" }
+    };
+
+    const options = {
+      method: "post",
+      headers: {
+        "Authorization": "Bearer " + OPENAI_API_KEY,
+        "Content-Type": "application/json"
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    };
+
+    const response = UrlFetchApp.fetch(url, options);
+    const responseCode = response.getResponseCode();
+    const responseText = response.getContentText();
+
+    Logger.log("OpenAI API 응답 코드:", responseCode);
+    Logger.log("OpenAI API 응답:", responseText);
+
+    if (responseCode !== 200) {
+      throw new Error("OpenAI API 오류: " + responseText);
+    }
+
+    const responseData = JSON.parse(responseText);
+    const content = responseData.choices[0].message.content;
+    
+    Logger.log("OpenAI 파싱된 응답:", content);
+    return content;
+  } catch (error) {
+    Logger.log("OpenAI API 호출 오류:", error);
+    return null;
+  }
+}
+
+// Google Gemini API 호출
+function callGeminiAPI(prompt) {
+  try {
+    Logger.log("Gemini API 호출 시작");
+    
+    if (!GEMINI_API_KEY || GEMINI_API_KEY === "YOUR_GEMINI_API_KEY") {
+      throw new Error("Gemini API 키가 설정되지 않았습니다.");
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const payload = {
+      contents: [{
+        parts: [{
+          text: prompt
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.3,
+        responseMimeType: "application/json"
+      }
+    };
+
+    const options = {
+      method: "post",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    };
+
+    const response = UrlFetchApp.fetch(url, options);
+    const responseCode = response.getResponseCode();
+    const responseText = response.getContentText();
+
+    Logger.log("Gemini API 응답 코드:", responseCode);
+    Logger.log("Gemini API 응답:", responseText);
+
+    if (responseCode !== 200) {
+      throw new Error("Gemini API 오류: " + responseText);
+    }
+
+    const responseData = JSON.parse(responseText);
+    const content = responseData.candidates[0].content.parts[0].text;
+    
+    Logger.log("Gemini 파싱된 응답:", content);
+    return content;
+  } catch (error) {
+    Logger.log("Gemini API 호출 오류:", error);
+    return null;
+  }
+}
+
+// LLM 응답 파싱 (JSON 추출)
+function parseLLMResponse(llmResponse, contractNo) {
+  try {
+    Logger.log("LLM 응답 파싱 시작");
+    
+    // JSON 추출 (마크다운 코드 블록 제거)
+    let jsonText = llmResponse.trim();
+    
+    // ```json 또는 ```로 감싸진 경우 제거
+    jsonText = jsonText.replace(/^```(?:json)?\s*/i, "");
+    jsonText = jsonText.replace(/\s*```$/i, "");
+    
+    // JSON 파싱
+    const parsed = JSON.parse(jsonText);
+    
+    // 결과 객체 생성
+    const result = {
+      운송계약번호: parsed.운송계약번호 || contractNo || "",
+      고객사명: parsed.고객사명 || "",
+      상차일자: parsed.상차일자 || "",
+      하차일자: parsed.하차일자 || "",
+      상차지명: parsed.상차지명 || "",
+      상차지주소: parsed.상차지주소 || "",
+      하차지명: parsed.하차지명 || "",
+      하차지주소: parsed.하차지주소 || "",
+      요청톤수: parsed.요청톤수 || "",
+      담당자명: parsed.담당자명 || "",
+      담당자연락처: parsed.담당자연락처 || "",
+      비고: parsed.비고 || "",
+    };
+    
+    Logger.log("LLM 응답 파싱 완료:", result);
+    return result;
+  } catch (error) {
+    Logger.log("LLM 응답 파싱 오류:", error);
+    Logger.log("원본 응답:", llmResponse);
+    throw error;
+  }
+}
+
 // 전체 설정 함수
 function initialize() {
   try {
     Logger.log("=== 시스템 초기화 시작 ===");
+    Logger.log("파싱 모드:", PARSING_MODE);
     setupFormResponseTrigger();
     initializeFormResponseSheet();
     Logger.log("=== 시스템 초기화 완료 ===");

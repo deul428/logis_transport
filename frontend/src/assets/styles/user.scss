@@ -1,0 +1,294 @@
+@import "./mixin";
+@import "./variables";
+#user {
+  &.user_02 {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    .cntnt_box {
+      height: 90%;
+      justify-content: flex-start !important;
+      #input_area {
+        .input_field {
+          button {
+            padding: 0.5rem;
+          }
+          .input_product_area {
+            .input_product_heading {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 0.5rem;
+              h4 {
+              }
+              button {
+                width: fit-content;
+                padding: 0.3rem 0.7rem;
+              }
+            }
+            .input_product_field {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 0.25rem;
+              @include mobile {
+                grid-template-columns: repeat(1, 1fr);
+              }
+              @include tablet {
+                grid-template-columns: repeat(2, 1fr);
+              }
+              div {
+                text-align: left;
+                label {
+                  text-align: left;
+                  font-size: 0.8rem;
+                }
+              }
+            }
+            margin-bottom: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: $common-border-radius;
+            transition: all 0.3s linear;
+            outline: none;
+            box-shadow: 0 2px 8px 0 rgba(0, 19, 73, 0.06);
+            font-size: 0.8rem;
+            padding: 1rem 0.6rem;
+            &:focus,
+            &:active {
+              border: 1px solid #5277e790;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+#user {
+  width: map-get($cntnt-wrap-widths, desktop);
+  @include tablet {
+    width: map-get($cntnt-wrap-widths, tablet);
+  }
+  @include mobile {
+    width: map-get($cntnt-wrap-widths, mobile);
+  }
+  height: 100%;
+  button {
+    width: 100%;
+  }
+
+  .cntnt_box {
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    .user_header {
+      text-align: center;
+      flex-direction: column;
+      align-items: center;
+
+      h2 {
+        margin: 0 0 0.2rem;
+        font-size: 1.5rem;
+      }
+    }
+
+    #input_area {
+      margin-bottom: 1rem;
+      width: 100%;
+      form {
+        margin: 0 auto;
+        text-align: center;
+
+        input,
+        textarea {
+          font-family: inherit;
+          margin-bottom: 0.5rem;
+          width: calc(100% - 1rem - 8px);
+        }
+      }
+      label {
+      }
+      .input_field {
+      }
+    }
+    #result_area {
+      margin: -1rem 0 0;
+      width: 100%;
+      text-align: center;
+
+      h2 {
+        margin: 0;
+        font-size: 1.1rem;
+      }
+
+      #submittedData {
+        text-align: left;
+        margin-bottom: 1rem;
+        box-shadow: none;
+        div.rows {
+          width: 100%;
+          &:last-child {
+            margin-top: 1rem;
+          }
+          h3 {
+            margin-top: 0;
+          }
+          p {
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: break-word;
+          }
+        }
+      }
+
+      a {
+        text-decoration: none;
+        color: #5278e7;
+      }
+    }
+    #desc_area {
+      margin: 0;
+      // width: 100%;
+      // max-height: 30dvh;
+      // overflow-y: auto;
+      display: flex;
+      flex-direction: row;
+      justify-content: flex-start;
+
+      > div {
+        width: 100%;
+
+        &:first-child {
+          margin-right: 0.25rem;
+        }
+
+        &:last-child {
+          margin-left: 0.25rem;
+        }
+
+        .toggle {
+          font-size: 0.84rem;
+          margin: 0 auto;
+          display: inline-block;
+          background: #eee;
+          color: #000;
+
+          &:hover {
+            background: #ccc;
+          }
+        }
+
+        .desc_box {
+          overflow-y: hidden;
+          font-size: 0.75rem;
+          display: flex;
+          flex-direction: column;
+          max-height: 0;
+          opacity: 0;
+          transition: max-height 0.3s linear;
+          margin: 0.5rem auto 0;
+          text-align: left;
+          &.open {
+            opacity: 1;
+            max-height: fit-content;
+          }
+
+          p {
+            margin: 0;
+          }
+        }
+      }
+    }
+  }
+}
+/* === 반응형 === */
+@include mobile {
+  #user {
+    width: 90% !important;
+
+    button {
+      font-size: 0.9rem;
+      padding: 0.7rem 1rem;
+    }
+
+    .cntnt_box {
+      height: fit-content;
+      width: calc(100% - 1rem) !important;
+      padding: 1rem 0.5rem !important;
+      justify-content: flex-start !important;
+      &.user_02 {
+      }
+      .user_header {
+        width: 100%;
+        h2 {
+          font-size: 1.2rem;
+        }
+        img {
+          width: 70%;
+        }
+      }
+
+      #input_area {
+        margin: 2rem 0;
+
+        form textarea {
+          height: fit-content;
+          overflow-y: auto;
+        }
+        button {
+          width: 100%;
+        }
+      }
+
+      #desc_area {
+        flex-direction: column;
+        font-size: 0.7rem;
+        overflow: hidden !important;
+        max-height: unset;
+
+        > div {
+          margin: 0;
+          width: 100%;
+          text-align: center;
+          &:first-child {
+            margin: 0;
+          }
+          &:last-child {
+            margin: 0;
+          }
+          button {
+            width: 100%;
+          }
+
+          .toggle {
+            margin: 0;
+            margin-bottom: 0.5rem;
+          }
+          .desc_box {
+            font-size: 0.8rem;
+            margin: 0 0 1rem;
+            width: calc(100% - 2rem);
+            &.open {
+              // margin-bottom: 1rem;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+@include tablet {
+  .cntnt_box {
+    height: fit-content !important;
+    overflow-y: auto;
+    width: calc(100% - 1rem) !important;
+    padding: 1rem 0.5rem !important;
+    justify-content: flex-start !important;
+    #desc_area {
+      overflow: hidden !important;
+      max-height: unset !important;
+    }
+  }
+}

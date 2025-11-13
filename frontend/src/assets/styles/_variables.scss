@@ -1,0 +1,21 @@
+// Breakpoints
+$breakpoint-mobile: 320px;
+$breakpoint-tablet: 758px;
+$breakpoint-desktop: 1024px;
+$header-height: 72px;
+
+// 메인 content wrapper의 width를 브레이크포인트별로 SASS map으로 관리
+$cntnt-wrap-widths: (
+  desktop: 25dvw,
+  // 1024px 이상
+  tablet: 60%,
+  // 758px ~ 1023px
+  mobile: 90% // 757px 이하 등,
+);
+
+$heading-color-2: #101214;
+$heading-color-3: #636870;
+$heading-color-4: #8b919a;
+$common-border-radius: 0.5rem;
+$table-th-bg: #fafafa;
+

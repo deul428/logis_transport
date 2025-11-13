@@ -1,0 +1,143 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/variable/pretendardvariable.css");
+@import "./_variables.scss";
+@import "./_mixin.scss";
+
+.wrap {
+  height: 100dvh;
+  width: 100dvw;
+  overflow: auto;
+  background: white;
+  box-shadow: 0 5px 10px 0 rgba(0, 0, 0, 0.064);
+  display: flex;
+  justify-content: flex-start;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.5;
+
+  h2 {
+    font-size: 1.5rem;
+    margin: 0;
+    padding: 0.5rem 0;
+    font-weight: 700;
+  }
+  h3,
+  p {
+    margin: 0;
+  }
+
+  h3 {
+    margin-top: 0.5rem;
+  }
+  h4 {
+    font-size: 0.8rem;
+    color: $heading-color-4;
+    margin: 0;
+  }
+  .input_field {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 1rem;
+    label {
+      font-size: 1rem;
+      font-weight: 700;
+      text-align: left;
+      color: $heading-color-2;
+      span {
+        color: rgb(199, 27, 27);
+      }
+    }
+    input {
+      margin-bottom: 0.5rem;
+      &:nth-last-child(2) {
+        margin-bottom: 1rem;
+      }
+    }
+  }
+  .card {
+    padding: 1rem;
+    font-size: 0.9rem;
+    margin: 0 auto;
+    width: calc(100% - 4px - 2rem);
+    border-radius: $common-border-radius;
+    margin-top: 1rem;
+    background: white;
+    box-shadow: 0 5px 10px 0 rgba(0, 0, 0, 0.064);
+  }
+  img.ci {
+    width: 100%;
+    max-width: 200px;
+  }
+  button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: calc(100% - 2rem);
+    padding: 1rem;
+    text-align: center;
+    font-size: 1rem;
+    cursor: pointer;
+    background: #5278e7;
+    border: none;
+    color: white;
+    &:hover {
+      background: #466de2;
+    }
+    &.warning {
+      background: #e79052;
+      &:hover {
+        background: #e27a2f;
+      }
+    }
+    &.info {
+      background: white;
+      border: 1px solid #ddd;
+      box-shadow: 0 2px 8px 0 rgba(0, 19, 73, 0.06);
+      color: #111;
+      &:focus,
+      &:active {
+        border: 1px solid #5277e790;
+      }
+    }
+    &.dark {
+      background: #636870;
+      &:hover {
+        background: #555 !important;
+      }
+    }
+    &.danger {
+      background: #d82222;
+      &:hover {
+        background: #bb1818 !important;
+      }
+    }
+  }
+  .field,
+  input,
+  textarea {
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 8px 0 rgba(0, 19, 73, 0.06);
+    font-size: 0.8rem;
+    padding: 1rem 0.6rem;
+    &:focus,
+    &:active {
+      border: 1px solid #5277e790;
+    }
+  }
+
+  .field,
+  input,
+  textarea,
+  button {
+    border-radius: $common-border-radius;
+    transition: all 0.3s linear;
+    outline: none;
+  }
+}
+
+@include mobile {
+  img.ci {
+    max-width: 240px !important;
+    margin-bottom: 0;
+  }
+}
+

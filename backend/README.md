@@ -19,6 +19,11 @@
    ```
    - 시트 ID는 구글 시트 URL에서 확인 가능: `https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit`
 
+4. (선택사항) LLM 모드 사용 시 API 키 설정
+   - OpenAI 사용: `OPENAI_API_KEY`에 API 키 입력
+   - Gemini 사용: `GEMINI_API_KEY`에 API 키 입력, `USE_GEMINI = true` 설정
+   - 파싱 모드 변경: `PARSING_MODE = "LLM"` 설정
+
 ### 3. 트리거 설정
 1. Apps Script 편집기에서 `initialize()` 함수 실행
 2. 또는 수동으로 `setupFormResponseTrigger()` 함수 실행
@@ -43,7 +48,7 @@
 
 ## 주요 기능
 
-### 자동 파싱
+### 자동 파싱 (2가지 모드 지원)
 - 구글 폼에 응답이 제출되면 자동으로 텍스트를 파싱합니다
 - 다음 정보를 추출합니다:
   - 상차일자
@@ -53,6 +58,18 @@
   - 요청톤수
   - 담당자명/연락처
   - 비고
+
+#### 파싱 모드
+1. **KEYWORD 모드** (기본값)
+   - 키워드 기반 파싱
+   - 빠르고 무료
+   - 다양한 키워드 형식 지원
+
+2. **LLM 모드** (선택사항)
+   - OpenAI 또는 Google Gemini API 사용
+   - 더 정확한 파싱 가능
+   - API 키 설정 필요
+   - 오류 시 자동으로 KEYWORD 모드로 폴백
 
 ### 지원하는 텍스트 형식
 다양한 형식의 배차 요청 텍스트를 지원합니다:
@@ -126,8 +143,39 @@
 - 또는 `initialize()` 함수를 실행하면 자동으로 처리상태 컬럼이 생성됩니다
 - 처리상태 컬럼이 없어도 자동으로 추가되므로 걱정하지 마세요
 
+## LLM 모드 사용 가이드
+
+### OpenAI API 설정
+1. OpenAI API 키 발급: https://platform.openai.com/api-keys
+2. `Code.js`에서 `OPENAI_API_KEY` 변수에 API 키 입력
+3. `PARSING_MODE = "LLM"` 설정
+4. `USE_GEMINI = false` 유지
+
+### Google Gemini API 설정
+1. Google AI Studio에서 API 키 발급: https://makersuite.google.com/app/apikey
+2. `Code.js`에서 `GEMINI_API_KEY` 변수에 API 키 입력
+3. `PARSING_MODE = "LLM"` 설정
+4. `USE_GEMINI = true` 설정
+
+### LLM 모드 장단점
+**장점:**
+- 다양한 형식의 텍스트를 더 정확하게 파싱
+- 키워드가 명확하지 않은 경우에도 추론 가능
+- 자연어 이해 능력으로 맥락 파악
+
+**단점:**
+- API 호출 비용 발생
+- 응답 시간이 상대적으로 느림
+- 인터넷 연결 필요
+
+### 폴백 메커니즘
+- LLM API 호출 실패 시 자동으로 KEYWORD 모드로 전환
+- API 키가 설정되지 않은 경우 KEYWORD 모드 사용
+
 ## 주의사항
 - 구글 앱스 스크립트는 일일 실행 시간 제한이 있습니다
 - 대량의 데이터를 처리할 경우 시간이 걸릴 수 있습니다
 - 파싱 결과는 덮어쓰지 않고 항상 새 행으로 추가됩니다
+- LLM 모드 사용 시 API 비용이 발생할 수 있습니다
+- Code_original.js는 키워드 기반 파싱만 사용하는 원본 버전입니다
 
