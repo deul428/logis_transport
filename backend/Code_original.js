@@ -1,5 +1,5 @@
 // ============================================
-// 배차 요청 자동화 시스템 - 구글 폼 응답 처리
+// 배차 요청 자동화 시스템 - 구글 폼 응답 처리 (원본 버전 - 키워드 기반 파싱)
 // ============================================
 
 // 구글 시트 ID (실제 시트 ID로 변경 필요)
@@ -255,10 +255,10 @@ function extractValue(text, keywords) {
   return "";
 }
 
-// 날짜/시간 파싱 함수 (다양한 형식 지원, 시간 정보 포함)
+// 날짜 파싱 함수 (다양한 형식 지원)
 function parseDate(text, keywords) {
-  const dateTimeStr = extractValue(text, keywords);
-  if (!dateTimeStr) return "";
+  const dateStr = extractValue(text, keywords);
+  if (!dateStr) return "";
 
   // 날짜 형식 정규화
   // 25.05.27, 2025.05.26, 5/27, 5월 27일 등 다양한 형식 처리
@@ -270,19 +270,15 @@ function parseDate(text, keywords) {
     /(\d{4})-(\d{2})-(\d{2})/, // 2025-05-26
   ];
 
-  let year = "";
-  let month = "";
-  let day = "";
-  let hour = "09"; // 기본값
-  let minute = "00"; // 기본값
-
   for (let pattern of patterns) {
-    const match = dateTimeStr.match(pattern);
+    const match = dateStr.match(pattern);
     if (match) {
+      let year, month, day;
+
       if (match.length === 3) {
         // 5/27 형식
         const currentYear = new Date().getFullYear();
-        year = currentYear.toString();
+        year = currentYear;
         month = match[1].padStart(2, "0");
         day = match[2].padStart(2, "0");
       } else if (match.length === 4) {
@@ -296,71 +292,27 @@ function parseDate(text, keywords) {
         month = match[2];
         day = match[3];
       }
-      break;
+
+      return `${year}-${month}-${day}`;
     }
   }
 
-  // 시간 정보 추출 (예: "25.05.27 (화요일) 09:00" 또는 "09:00", "오전 9시" 등)
-  const timePatterns = [
-    /(\d{1,2}):(\d{2})/, // 09:00, 14:30
-    /(\d{1,2})시\s*(\d{1,2})?분?/, // 9시, 14시 30분
-    /오전\s*(\d{1,2})시?/, // 오전 9시
-    /오후\s*(\d{1,2})시?/, // 오후 2시
-  ];
-
-  for (let pattern of timePatterns) {
-    const timeMatch = dateTimeStr.match(pattern);
-    if (timeMatch) {
-      if (pattern === timePatterns[0]) {
-        // HH:mm 형식
-        hour = timeMatch[1].padStart(2, "0");
-        minute = (timeMatch[2] || "00").padStart(2, "0");
-      } else if (pattern === timePatterns[1]) {
-        // N시 M분 형식
-        hour = timeMatch[1].padStart(2, "0");
-        minute = (timeMatch[2] || "00").padStart(2, "0");
-      } else if (pattern === timePatterns[2]) {
-        // 오전 N시
-        let h = parseInt(timeMatch[1]);
-        if (h === 12) h = 0;
-        hour = h.toString().padStart(2, "0");
-      } else if (pattern === timePatterns[3]) {
-        // 오후 N시
-        let h = parseInt(timeMatch[1]);
-        if (h !== 12) h += 12;
-        hour = h.toString().padStart(2, "0");
-      }
-      break;
-    }
+  // 시간 정보만 있는 경우 (오늘, 내일 등)
+  if (dateStr.includes("금일") || dateStr.includes("오늘")) {
+    const today = new Date();
+    return Utilities.formatDate(today, Session.getScriptTimeZone(), "yyyy-MM-dd");
   }
 
-  // 날짜가 없으면 오늘/내일 처리
-  if (!year) {
-    if (dateTimeStr.includes("금일") || dateTimeStr.includes("오늘")) {
-      const today = new Date();
-      year = today.getFullYear().toString();
-      month = String(today.getMonth() + 1).padStart(2, "0");
-      day = String(today.getDate()).padStart(2, "0");
-    } else if (dateTimeStr.includes("익일") || dateTimeStr.includes("내일")) {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      year = tomorrow.getFullYear().toString();
-      month = String(tomorrow.getMonth() + 1).padStart(2, "0");
-      day = String(tomorrow.getDate()).padStart(2, "0");
-    } else {
-      return dateTimeStr; // 파싱 실패 시 원본 반환
-    }
+  if (dateStr.includes("익일") || dateStr.includes("내일")) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return Utilities.formatDate(tomorrow, Session.getScriptTimeZone(), "yyyy-MM-dd");
   }
 
-  // YYYY-MM-DD HH:mm 형식으로 반환
-  if (year && month && day) {
-    return `${year}-${month}-${day} ${hour}:${minute}`;
-  }
-
-  return dateTimeStr;
+  return dateStr;
 }
 
-// 주소 추출 함수 (상차지/하차지) - 개선: 다양한 형식 지원, 주소와 업체명 분리
+// 주소 추출 함수 (상차지/하차지) - 개선: 다양한 형식 지원
 function extractAddress(text, keywords) {
   if (!text) return "";
 
@@ -434,24 +386,23 @@ function extractAddress(text, keywords) {
   }
   
   if (addressLines.length > 0) {
-    const fullText = addressLines.join(" ").trim();
-    // 주소와 업체명 분리 (주소 패턴이 먼저 나오는 경우)
+    const fullAddress = addressLines.join(" ").trim();
+    // 주소와 업체명이 함께 있는 경우 분리
     const addressPattern = /([가-힣\s\d\-\.]+(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)[가-힣\s\d\-\.]*)\s*(.+)?/;
-    const match = fullText.match(addressPattern);
+    const match = fullAddress.match(addressPattern);
     
     if (match) {
       return match[1].trim();
     }
     
-    // 주소 패턴이 없으면 전체를 주소로 (업체명이 앞에 있을 수도 있음)
-    return fullText;
+    return fullAddress;
   }
 
   // extractValue로 한 번 더 시도
   const addressStr = extractValue(text, keywords);
   if (!addressStr) return "";
 
-  // 주소 패턴 추출
+  // 기존 로직 (단일 줄 처리)
   const addressPattern = /([가-힣\s\d\-\.]+(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)[가-힣\s\d\-\.]*)\s*(.+)?/;
   const match = addressStr.match(addressPattern);
   
@@ -462,125 +413,13 @@ function extractAddress(text, keywords) {
   return addressStr.trim();
 }
 
-// 업체명 추출 함수 (개선: 주소와 업체명 분리, 여러 줄 처리)
+// 업체명 추출 함수
 function extractCompanyName(text, keywords) {
-  if (!text) return "";
-
-  // 여러 줄에 걸친 처리
-  const lines = text.split("\n");
-  let foundKeyword = false;
-  let companyLines = [];
-  
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
-    if (!line) continue;
-    
-    // 키워드가 있는 줄 찾기
-    if (!foundKeyword) {
-      for (let keyword of keywords) {
-        const keywordLower = keyword.toLowerCase();
-        const lineLower = line.toLowerCase();
-        
-        if (lineLower.includes(keywordLower)) {
-          foundKeyword = true;
-          
-          // 콜론(: 또는 ：) 뒤의 내용 추출
-          const colonIndex = line.search(/[:：]/);
-          if (colonIndex > -1) {
-            const afterColon = line.substring(colonIndex + 1).trim();
-            if (afterColon) {
-              companyLines.push(afterColon);
-            }
-          } else {
-            // 콜론이 없으면 키워드 뒤의 내용
-            const keywordIndex = lineLower.indexOf(keywordLower);
-            if (keywordIndex > -1) {
-              const afterKeyword = line.substring(keywordIndex + keyword.length).trim();
-              if (afterKeyword) {
-                companyLines.push(afterKeyword);
-              }
-            }
-          }
-          
-          // 다음 줄도 확인 (업체명이 다음 줄에 있을 수 있음)
-          if (i < lines.length - 1) {
-            const nextLine = lines[i + 1].trim();
-            if (nextLine && !nextLine.match(/^[가-힣\s]*[:：]/)) {
-              // 다음 줄이 키워드가 아니면 포함
-              const isKeyword = keywords.some(k => nextLine.toLowerCase().includes(k.toLowerCase()));
-              if (!isKeyword) {
-                companyLines.push(nextLine);
-                i++; // 다음 줄을 이미 처리했으므로 인덱스 증가
-              }
-            }
-          }
-          break;
-        }
-      }
-    } else {
-      // 키워드 이후 연속된 줄들
-      const isKeyword = keywords.some(k => line.toLowerCase().includes(k.toLowerCase()));
-      if (!isKeyword && line) {
-        companyLines.push(line);
-      } else {
-        break;
-      }
-    }
-  }
-  
-  if (companyLines.length > 0) {
-    const fullText = companyLines.join(" ").trim();
-    
-    // "하차지 업체명 / 주소" 형식 처리 (업체명이 앞에 올 수도, 주소가 앞에 올 수도)
-    // 슬래시(/)로 분리된 경우
-    if (fullText.includes("/")) {
-      const parts = fullText.split("/").map(p => p.trim());
-      for (let part of parts) {
-        // 주소 패턴이 없으면 업체명으로 간주
-        if (!part.match(/(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)/)) {
-          return part;
-        }
-      }
-      // 모두 주소 패턴이면 마지막 부분을 업체명으로
-      return parts[parts.length - 1] || "";
-    }
-    
-    // 주소와 업체명이 함께 있는 경우
-    const addressPattern = /([가-힣\s\d\-\.]+(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)[가-힣\s\d\-\.]*)\s*(.+)/;
-    const match = fullText.match(addressPattern);
-    
-    if (match && match[2]) {
-      return match[2].trim();
-    }
-    
-    // 주소 패턴이 없으면 전체를 업체명으로
-    if (!fullText.match(/(?:시|도|군|구|읍|면|동|리|로|길)/)) {
-      return fullText.trim();
-    }
-    
-    // 주소 패턴이 있으면 업체명 추출 시도 (주소 뒤에 업체명이 있을 수 있음)
-    const reverseMatch = fullText.match(/(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)[가-힣\s\d\-\.]*\s*(.+)/);
-    if (reverseMatch && reverseMatch[1]) {
-      return reverseMatch[1].trim();
-    }
-  }
-
-  // extractValue로 한 번 더 시도
   const fullStr = extractValue(text, keywords);
   if (!fullStr) return "";
 
-  // 슬래시(/)로 분리된 경우
-  if (fullStr.includes("/")) {
-    const parts = fullStr.split("/").map(p => p.trim());
-    for (let part of parts) {
-      if (!part.match(/(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)/)) {
-        return part;
-      }
-    }
-    return parts[parts.length - 1] || "";
-  }
-
   // 주소와 업체명이 함께 있는 경우
+  // 주소 부분을 제거하고 업체명만 추출
   const addressPattern = /([가-힣\s\d\-\.]+(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)[가-힣\s\d\-\.]*)\s*(.+)/;
   const match = fullStr.match(addressPattern);
   
@@ -596,70 +435,9 @@ function extractCompanyName(text, keywords) {
   return "";
 }
 
-// 연락처 추출 함수 (전화번호) - 개선: 여러 줄 처리, 다양한 형식 지원
+// 연락처 추출 함수 (전화번호)
 function extractPhone(text, keywords) {
-  if (!text) return "";
-
-  // 여러 줄에 걸친 처리
-  const lines = text.split("\n");
-  let foundKeyword = false;
-  let phoneLines = [];
-  
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
-    if (!line) continue;
-    
-    // 키워드가 있는 줄 찾기
-    if (!foundKeyword) {
-      for (let keyword of keywords) {
-        const keywordLower = keyword.toLowerCase();
-        const lineLower = line.toLowerCase();
-        
-        if (lineLower.includes(keywordLower)) {
-          foundKeyword = true;
-          
-          // 콜론(: 또는 ：) 뒤의 내용 추출
-          const colonIndex = line.search(/[:：]/);
-          if (colonIndex > -1) {
-            const afterColon = line.substring(colonIndex + 1).trim();
-            if (afterColon) {
-              phoneLines.push(afterColon);
-            }
-          } else {
-            const keywordIndex = lineLower.indexOf(keywordLower);
-            if (keywordIndex > -1) {
-              const afterKeyword = line.substring(keywordIndex + keyword.length).trim();
-              if (afterKeyword) {
-                phoneLines.push(afterKeyword);
-              }
-            }
-          }
-          
-          // 다음 줄도 확인 (연락처가 다음 줄에 있을 수 있음)
-          if (i < lines.length - 1) {
-            const nextLine = lines[i + 1].trim();
-            if (nextLine && !nextLine.match(/^[가-힣\s]*[:：]/)) {
-              const isKeyword = keywords.some(k => nextLine.toLowerCase().includes(k.toLowerCase()));
-              if (!isKeyword) {
-                phoneLines.push(nextLine);
-                i++;
-              }
-            }
-          }
-          break;
-        }
-      }
-    } else {
-      const isKeyword = keywords.some(k => line.toLowerCase().includes(k.toLowerCase()));
-      if (!isKeyword && line) {
-        phoneLines.push(line);
-      } else {
-        break;
-      }
-    }
-  }
-  
-  const phoneStr = phoneLines.join(" ").trim() || extractValue(text, keywords);
+  const phoneStr = extractValue(text, keywords);
   if (!phoneStr) return "";
 
   // 전화번호 패턴 추출
@@ -670,100 +448,21 @@ function extractPhone(text, keywords) {
     return match[1];
   }
 
-  // 이름과 함께 있는 경우 (예: "윤태우 사원: 010-4645-9823")
-  const namePhonePattern = /([가-힣\s]+)[:：]\s*(\d{2,3}-\d{3,4}-\d{4}|\d{10,11})/;
+  // 이름과 함께 있는 경우
+  const namePhonePattern = /([가-힣\s]+)[:：]?\s*(\d{2,3}-\d{3,4}-\d{4}|\d{10,11})/;
   const nameMatch = phoneStr.match(namePhonePattern);
   
   if (nameMatch) {
     return nameMatch[2];
   }
 
-  // 슬래시(/)로 분리된 경우 (예: "김아주 / 010-1111-1111")
-  if (phoneStr.includes("/")) {
-    const parts = phoneStr.split("/").map(p => p.trim());
-    for (let part of parts) {
-      const phoneMatch = part.match(phonePattern);
-      if (phoneMatch) {
-        return phoneMatch[1];
-      }
-    }
-  }
-
   return phoneStr.trim();
 }
 
-// 담당자명 추출 함수 (개선: 여러 줄 처리, 다양한 형식 지원)
+// 담당자명 추출 함수
 function extractContactName(text, keywords) {
-  if (!text) return "";
-
-  // 여러 줄에 걸친 처리
-  const lines = text.split("\n");
-  let foundKeyword = false;
-  let contactLines = [];
-  
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
-    if (!line) continue;
-    
-    // 키워드가 있는 줄 찾기
-    if (!foundKeyword) {
-      for (let keyword of keywords) {
-        const keywordLower = keyword.toLowerCase();
-        const lineLower = line.toLowerCase();
-        
-        if (lineLower.includes(keywordLower)) {
-          foundKeyword = true;
-          
-          // 콜론(: 또는 ：) 뒤의 내용 추출
-          const colonIndex = line.search(/[:：]/);
-          if (colonIndex > -1) {
-            const afterColon = line.substring(colonIndex + 1).trim();
-            if (afterColon) {
-              contactLines.push(afterColon);
-            }
-          } else {
-            const keywordIndex = lineLower.indexOf(keywordLower);
-            if (keywordIndex > -1) {
-              const afterKeyword = line.substring(keywordIndex + keyword.length).trim();
-              if (afterKeyword) {
-                contactLines.push(afterKeyword);
-              }
-            }
-          }
-          
-          // 다음 줄도 확인 (담당자 정보가 다음 줄에 있을 수 있음)
-          if (i < lines.length - 1) {
-            const nextLine = lines[i + 1].trim();
-            if (nextLine && !nextLine.match(/^[가-힣\s]*[:：]/)) {
-              const isKeyword = keywords.some(k => nextLine.toLowerCase().includes(k.toLowerCase()));
-              if (!isKeyword) {
-                contactLines.push(nextLine);
-                i++;
-              }
-            }
-          }
-          break;
-        }
-      }
-    } else {
-      const isKeyword = keywords.some(k => line.toLowerCase().includes(k.toLowerCase()));
-      if (!isKeyword && line) {
-        contactLines.push(line);
-      } else {
-        break;
-      }
-    }
-  }
-  
-  const contactStr = contactLines.join(" ").trim() || extractValue(text, keywords);
+  const contactStr = extractValue(text, keywords);
   if (!contactStr) return "";
-
-  // "윤태우 사원: 010-4645-9823" 형식 처리
-  const nameColonPattern = /([가-힣]{2,4})\s*(?:사원|과장|대리|차장|부장|대표|님)?\s*[:：]\s*\d/;
-  const nameColonMatch = contactStr.match(nameColonPattern);
-  if (nameColonMatch) {
-    return nameColonMatch[1].trim();
-  }
 
   // 이름 패턴 추출 (한글 이름)
   const namePattern = /([가-힣]{2,4})\s*(?:사원|과장|대리|차장|부장|대표|님)?/;
@@ -781,55 +480,27 @@ function extractContactName(text, keywords) {
     return nameMatch[1].trim().replace(/\s*(사원|과장|대리|차장|부장|대표|님)\s*/, "");
   }
 
-  // 슬래시(/)로 분리된 경우 (예: "김아주 / 010-1111-1111")
-  if (contactStr.includes("/")) {
-    const parts = contactStr.split("/").map(p => p.trim());
-    for (let part of parts) {
-      // 전화번호가 없으면 이름으로 간주
-      if (!part.match(/\d{2,3}-\d{3,4}-\d{4}|\d{10,11}/)) {
-        const nameMatch = part.match(/([가-힣]{2,4})/);
-        if (nameMatch) {
-          return nameMatch[1];
-        }
-      }
-    }
-  }
-
   return contactStr.trim();
 }
 
-// 톤수 추출 함수 (개선: 복잡한 형식 지원)
+// 톤수 추출 함수
 function extractTonnage(text, keywords) {
   const tonnageStr = extractValue(text, keywords);
   if (!tonnageStr) return "";
 
-  // 복잡한 형식 처리 (예: "11t(9.6m 이상 6대) / 중량 3.5t")
-  // 먼저 톤수 부분만 추출
-  const tonnagePatterns = [
-    /(\d+(?:\.\d+)?)\s*[톤tT](?:\([^)]*\))?/, // 11t(9.6m 이상 6대)
-    /(\d+(?:\.\d+)?)\s*톤/, // 2.5톤
-    /(\d+)\s*파[렛레]트/, // 6파레트
-    /(\d+(?:\.\d+)?)\s*[톤tT]\s*[이상이하]/, // 11톤 이상
-    /중량\s*(\d+(?:\.\d+)?)\s*[톤tT]?/, // 중량 3.5t
+  // 톤수 패턴 추출
+  const patterns = [
+    /(\d+(?:\.\d+)?)\s*[톤tT]/,
+    /(\d+(?:\.\d+)?)\s*톤/,
+    /(\d+)\s*파[렛레]트/,
+    /(\d+(?:\.\d+)?)\s*[톤tT]\s*[이상이하]/,
   ];
 
-  for (let pattern of tonnagePatterns) {
+  for (let pattern of patterns) {
     const match = tonnageStr.match(pattern);
     if (match) {
-      let result = match[1];
-      // 톤 단위가 있으면 추가
-      if (tonnageStr.includes("톤") || tonnageStr.toLowerCase().includes("t")) {
-        result += "톤";
-      }
-      return result;
+      return match[1] + (tonnageStr.includes("톤") ? "톤" : "");
     }
-  }
-
-  // 차량 길이 정보도 포함 (예: "9.6m 이상 6대")
-  const vehiclePattern = /(\d+(?:\.\d+)?)\s*[mM미터]\s*(?:이상|이하)?\s*(\d+)\s*대/;
-  const vehicleMatch = tonnageStr.match(vehiclePattern);
-  if (vehicleMatch) {
-    return `${vehicleMatch[1]}m ${vehicleMatch[2]}대`;
   }
 
   return tonnageStr.trim();
@@ -901,7 +572,6 @@ function parseTransportRequest(text, contractNo) {
   ]);
 
   // 하차지 주소 추출 (다양한 키워드 지원: 하차지 = 도착지 = 착지 = 하차지명)
-  // "하차지 업체명 / 주소" 형식에서 주소 추출 (주소가 뒤에 올 수도, 앞에 올 수도)
   result.하차지주소 = extractAddress(text, [
     "하차지 업체명 / 주소",
     "하차지 주소",
@@ -913,22 +583,6 @@ function parseTransportRequest(text, contractNo) {
     "하차지 주소:",
     "하차지명",  // 추가 (하차지명에서 주소 추출)
   ]);
-  
-  // "하차지 업체명 / 주소" 형식에서 주소가 업체명 뒤에 있는 경우 처리
-  const 하차지전체 = extractValue(text, ["하차지 업체명 / 주소"]);
-  if (하차지전체 && 하차지전체.includes("/")) {
-    const parts = 하차지전체.split("/").map(p => p.trim());
-    for (let part of parts) {
-      // 주소 패턴이 있으면 주소로 간주
-      if (part.match(/(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)/)) {
-        // 주소와 업체명이 함께 있는 경우 분리
-        const addressMatch = part.match(/([가-힣\s\d\-\.]+(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)[가-힣\s\d\-\.]*)/);
-        if (addressMatch && !result.하차지주소) {
-          result.하차지주소 = addressMatch[1].trim();
-        }
-      }
-    }
-  }
 
   // 하차지명 추출 (다양한 키워드 지원)
   result.하차지명 = extractCompanyName(text, [
@@ -991,7 +645,7 @@ function parseTransportRequest(text, contractNo) {
 
   result.담당자연락처 = 하차연락처 || 상차연락처 || "";
 
-  // 비고 추출 (특이사항, 비고 등) - 개선: 여러 줄 처리, 다양한 형식 지원
+  // 비고 추출 (특이사항, 비고 등)
   const 비고키워드 = [
     "비고",
     "특이사항",
@@ -999,7 +653,6 @@ function parseTransportRequest(text, contractNo) {
     "요청사항",
     "수작업유무",
     "※",
-    "요청차량대수",  // 추가
   ];
   
   // 여러 줄에 걸친 비고 추출
@@ -1007,45 +660,15 @@ function parseTransportRequest(text, contractNo) {
   let 비고모음 = [];
   let 비고시작 = false;
   
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
+  for (let line of lines) {
+    line = line.trim();
     if (!line) continue;
     
     // 비고 키워드가 있는 줄부터 시작
-    if (비고키워드.some(kw => line.toLowerCase().includes(kw.toLowerCase()))) {
+    if (비고키워드.some(kw => line.includes(kw))) {
       비고시작 = true;
-      // 콜론(: 또는 ：) 뒤의 내용 추출
-      const colonIndex = line.search(/[:：]/);
-      if (colonIndex > -1) {
-        const afterColon = line.substring(colonIndex + 1).trim();
-        if (afterColon) {
-          비고모음.push(afterColon);
-        }
-      } else {
-        // 키워드 뒤의 내용
-        for (let kw of 비고키워드) {
-          const kwIndex = line.toLowerCase().indexOf(kw.toLowerCase());
-          if (kwIndex > -1) {
-            const afterKw = line.substring(kwIndex + kw.length).trim();
-            if (afterKw) {
-              비고모음.push(afterKw);
-            }
-            break;
-          }
-        }
-      }
-      
-      // 다음 줄도 확인 (비고 내용이 다음 줄에 있을 수 있음)
-      if (i < lines.length - 1) {
-        const nextLine = lines[i + 1].trim();
-        if (nextLine && !nextLine.match(/^[가-힣\s]*[:：]/)) {
-          const isKeyword = 비고키워드.some(k => nextLine.toLowerCase().includes(k.toLowerCase()));
-          if (!isKeyword && !nextLine.match(/^\[|^상차|^하차|^요청/)) {
-            비고모음.push(nextLine);
-            i++;
-          }
-        }
-      }
+      const extracted = extractValue(line, 비고키워드);
+      if (extracted) 비고모음.push(extracted);
       continue;
     }
     
@@ -1060,16 +683,6 @@ function parseTransportRequest(text, contractNo) {
   }
   
   result.비고 = 비고모음.join(" ").trim() || extractValue(text, 비고키워드);
-  
-  // 요청차량대수도 비고에 포함 (별도 추출)
-  const 요청차량대수 = extractValue(text, ["요청차량대수", "요청 차량 대수", "차량대수"]);
-  if (요청차량대수) {
-    if (result.비고) {
-      result.비고 += " / 요청차량대수: " + 요청차량대수;
-    } else {
-      result.비고 = "요청차량대수: " + 요청차량대수;
-    }
-  }
 
   // 고객사명 추출 (업체명, 고객사명 등)
   result.고객사명 = extractValue(text, [
@@ -1383,4 +996,5 @@ function initialize() {
     Logger.log("초기화 오류:", error);
   }
 }
+
 

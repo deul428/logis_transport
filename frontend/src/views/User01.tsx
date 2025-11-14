@@ -5,7 +5,17 @@ import ci from "../assets/img/logo.svg";
 import "../assets/styles/user.scss";
 const User01 = () => {
   const [contractNo, setContractNo] = useState("");
-  const [content, setContent] = useState("");
+  const [content, setContent] = useState(`상차일 및 상차시간 : 
+상차지 담당자 / 연락처 : 
+상차지 주소 / 업체명 :  
+
+하차일 및 하차시간 : 
+하차지 담당자 / 연락처 : 
+하차지 주소 / 업체명 :   
+
+요청톤수(차량길이 및 총 중량) :  
+요청차량대수 :  
+수작업유무 Y/N : `);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   useEffect(() => {
@@ -66,7 +76,7 @@ const User01 = () => {
 
   return (
     <div className="wrap">
-      <div id="user">
+      <div id="user" className="user_01">
         <div className="cntnt_box">
           <div className="user_header">
             <h2>AJ네트웍스 배차 요청</h2>
@@ -83,7 +93,7 @@ const User01 = () => {
                     type="text"
                     value={contractNo}
                     disabled
-                    placeholder="URL 파라미터에서 자동으로 가져옵니다 (예: ?contractNo=12345)"
+                    placeholder="자동 기입"
                   />
                 </div>
 
@@ -91,20 +101,8 @@ const User01 = () => {
                   <label>배차 요청 내용</label>
                   <textarea
                     name="content"
-                    rows={10}
-                    placeholder={`배차 요청 내용을 입력해주세요.
-
-예시:
-[배차요청]
-상차일 및 상차시간 : 25.05.27 (화요일)
-상차지 담당자 / 연락처 : 031-351-9957
-상차지주소 및 업체명 : 경기도 화성시 우정읍 버들로899-87 대림플라텍
-하차일 및 하차시간 : 25.05.27 (화요일)
-하차지 업체명 / 주소 : 충남 서산시 대산읍 대죽리 642-22 현대케미칼
-하차지 담당자 / 연락처 : 윤태우 사원: 010-4645-9823
-요청톤수(차량길이 및 총 중량) : 11t(9.6m 이상 6대) / 중량 3.5t
-수작업유무 Y/N : N
-※요청차량대수 : 총 8대`}
+                    rows={12}
+                    placeholder={`배차 요청 내용 기재`}
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                   />
@@ -143,14 +141,19 @@ const User01 = () => {
           {!isSubmitted && (
             <div id="desc_area" className="card">
               <div className="info_box">
-                <h3>사용 안내</h3>
+                <h3>요청 예시</h3>
                 <p>
-                  1. 카카오톡 게시판의 URL로 접속하세요.
-                  <br />
-                  2. 배차 요청 내용을 입력한 후 제출 버튼을 클릭하세요.
-                  <br />
-                  <br />
-                  문의사항은 담당자에게 연락해 주시기 바랍니다.
+{`상차일 및 상차시간 : 25.05.27 (화요일) 
+상차지 담당자 / 연락처 : 김아주 / 010-1111-1111
+상차지 주소 / 업체명: 경기도 화성시 우정읍 버들로899-87 대림플라텍 
+ 
+하차일 및 하차시간 : 25.05.27 (화요일)
+하차지 담당자 / 연락처 : 김아주 / 010-1111-1111
+하차지 주소 / 업체명 : 현대케미칼 / 충남 서산시 대산읍 대죽리 642-22
+
+요청톤수(차량길이 및 총 중량) : 2.5톤 6파레트 
+요청차량대수 : 8 
+수작업유무 Y/N : N`}
                 </p>
               </div>
             </div>
