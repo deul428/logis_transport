@@ -172,7 +172,7 @@ function processFormResponse(sheet, row) {
   }
 }
 
-// 키워드 기반 값 추출 함수 (개선: 다양한 형식 지원)
+// 키워드 기반 값 추출 함수 (개선: 다양한 형식 지원, 여러 줄 처리)
 function extractValue(text, keywords) {
   if (!text) return "";
 
@@ -190,9 +190,11 @@ function extractValue(text, keywords) {
       if (!lineLower.includes(keywordLower)) continue;
 
       // 패턴 1: "키워드 : 값" 또는 "키워드: 값" 형식
+      // 키워드에 특수문자(/, 및 등)가 포함된 경우도 처리
+      const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const colonPatterns = [
-        new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "\\s*[:：]\\s*(.+)", "i"),
-        new RegExp(keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "\\s*[:：]\\s*", "i"),
+        new RegExp(escapedKeyword + "\\s*[:：]\\s*(.+)", "i"),
+        new RegExp(escapedKeyword + "\\s*[:：]\\s*", "i"),
       ];
 
       for (let pattern of colonPatterns) {
@@ -208,6 +210,7 @@ function extractValue(text, keywords) {
               // 다음 줄이 키워드가 아니고 콜론이 없으면 값으로 간주
               if (nextLine && !nextLine.match(/^[가-힣\s]*[:：]/) && !keywords.some(k => nextLine.toLowerCase().includes(k.toLowerCase()))) {
                 value = nextLine;
+                i++; // 다음 줄을 이미 처리했으므로 인덱스 증가
               }
             }
           }
@@ -217,13 +220,14 @@ function extractValue(text, keywords) {
       }
 
       // 패턴 2: "출 :", "착 :" 같은 간단한 형식
-      if (keyword.length <= 3 && line.match(new RegExp("^" + keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "\\s*[:：]\\s*(.+)", "i"))) {
-        const match = line.match(new RegExp("^" + keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "\\s*[:：]\\s*(.+)", "i"));
+      if (keyword.length <= 3 && line.match(new RegExp("^" + escapedKeyword + "\\s*[:：]\\s*(.+)", "i"))) {
+        const match = line.match(new RegExp("^" + escapedKeyword + "\\s*[:：]\\s*(.+)", "i"));
         if (match && match[1]) {
           let value = match[1].trim();
           // 다음 줄도 확인
           if (!value && i < lines.length - 1) {
             value = lines[i + 1].trim();
+            i++;
           }
           if (value) return value;
         }
@@ -878,68 +882,153 @@ function parseTransportRequest(text, contractNo) {
     "착지",      // 추가
   ]);
 
-  // 상차지 주소 추출 (다양한 키워드 지원: 상차지 = 출발지 = 상차지명)
-  result.상차지주소 = extractAddress(text, [
+  // 상차지 주소 및 업체명 추출 (통합 처리 후 분리)
+  const 상차지전체 = extractValue(text, [
+    "상차지 주소 / 업체명",
     "상차지주소 및 업체명",
-    "상차지 주소",
-    "상차지주소",
-    "상차지",
-    "출발지",    // 추가
-    "출",        // 추가
-    "상차지 주소 :",
-    "상차지명",  // 추가 (상차지명에서 주소 추출)
-  ]);
-
-  // 상차지명 추출 (다양한 키워드 지원)
-  result.상차지명 = extractCompanyName(text, [
-    "상차지주소 및 업체명",
-    "상차지 업체명",
-    "상차지명",
-    "상차지",    // 추가
-    "출발지",    // 추가
-    "출",        // 추가
-  ]);
-
-  // 하차지 주소 추출 (다양한 키워드 지원: 하차지 = 도착지 = 착지 = 하차지명)
-  // "하차지 업체명 / 주소" 형식에서 주소 추출 (주소가 뒤에 올 수도, 앞에 올 수도)
-  result.하차지주소 = extractAddress(text, [
-    "하차지 업체명 / 주소",
-    "하차지 주소",
-    "하차지주소",
-    "하차지",
-    "도착지",    // 추가
-    "착",        // 추가
-    "착지",      // 추가
-    "하차지 주소:",
-    "하차지명",  // 추가 (하차지명에서 주소 추출)
   ]);
   
-  // "하차지 업체명 / 주소" 형식에서 주소가 업체명 뒤에 있는 경우 처리
-  const 하차지전체 = extractValue(text, ["하차지 업체명 / 주소"]);
-  if (하차지전체 && 하차지전체.includes("/")) {
-    const parts = 하차지전체.split("/").map(p => p.trim());
-    for (let part of parts) {
-      // 주소 패턴이 있으면 주소로 간주
-      if (part.match(/(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)/)) {
-        // 주소와 업체명이 함께 있는 경우 분리
-        const addressMatch = part.match(/([가-힣\s\d\-\.]+(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)[가-힣\s\d\-\.]*)/);
-        if (addressMatch && !result.하차지주소) {
-          result.하차지주소 = addressMatch[1].trim();
+  Logger.log("상차지전체 추출 결과:", 상차지전체);
+  
+  if (상차지전체) {
+    // 슬래시(/)로 분리된 경우
+    if (상차지전체.includes("/")) {
+      const parts = 상차지전체.split("/").map(p => p.trim());
+      for (let part of parts) {
+        // 주소 패턴이 있으면 주소로
+        if (part.match(/(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)/)) {
+          // 주소와 업체명이 함께 있는 경우 분리
+          const addressMatch = part.match(/([가-힣\s\d\-\.]+(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)[가-힣\s\d\-\.]*)\s*(.+)?/);
+          if (addressMatch) {
+            result.상차지주소 = addressMatch[1].trim();
+            if (addressMatch[2]) {
+              result.상차지명 = addressMatch[2].trim();
+            }
+          } else {
+            result.상차지주소 = part;
+          }
+        } else {
+          // 주소 패턴이 없으면 업체명으로
+          result.상차지명 = part;
+        }
+      }
+    } else {
+      // 슬래시가 없으면 주소와 업체명이 함께 있는 경우
+      // 예: "경기도 화성시 우정읍 버들로899-87 대림플라텍"
+      // 주소 패턴: 시/도/군/구/읍/면/동/리/로/길/번지/번길이 포함된 부분 + 그 뒤의 업체명
+      const addressPattern = /([가-힣\s\d\-\.]+(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)[가-힣\s\d\-\.]*)\s+([가-힣\w]+)/;
+      const match = 상차지전체.match(addressPattern);
+      if (match && match[1] && match[2]) {
+        result.상차지주소 = match[1].trim();
+        result.상차지명 = match[2].trim();
+        Logger.log("상차지 분리 성공 - 주소:", result.상차지주소, "업체명:", result.상차지명);
+      } else {
+        // 주소 패턴이 없으면 전체를 업체명으로
+        if (!상차지전체.match(/(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)/)) {
+          result.상차지명 = 상차지전체;
+        } else {
+          // 주소 패턴만 있으면 주소로만 설정
+          result.상차지주소 = 상차지전체;
         }
       }
     }
   }
+  
+  // 기존 방식으로도 시도 (위에서 추출되지 않은 경우)
+  if (!result.상차지주소) {
+    result.상차지주소 = extractAddress(text, [
+      "상차지 주소",
+      "상차지주소",
+      "상차지",
+      "출발지",
+      "출",
+    ]);
+  }
+  
+  if (!result.상차지명) {
+    result.상차지명 = extractCompanyName(text, [
+      "상차지 업체명",
+      "상차지명",
+      "상차지",
+      "출발지",
+      "출",
+    ]);
+  }
 
-  // 하차지명 추출 (다양한 키워드 지원)
-  result.하차지명 = extractCompanyName(text, [
+  // 하차지 주소 및 업체명 추출 (통합 처리 후 분리)
+  const 하차지전체 = extractValue(text, [
+    "하차지 주소 / 업체명",
     "하차지 업체명 / 주소",
-    "하차지 업체명",
-    "하차지명",
-    "하차지",    // 추가
-    "도착지",    // 추가
-    "착",        // 추가
-    "착지",      // 추가
+    "하차지주소 및 업체명",
   ]);
+  
+  Logger.log("하차지전체 추출 결과:", 하차지전체);
+  
+  if (하차지전체) {
+    // 슬래시(/)로 분리된 경우
+    if (하차지전체.includes("/")) {
+      const parts = 하차지전체.split("/").map(p => p.trim());
+      for (let part of parts) {
+        // 주소 패턴이 있으면 주소로
+        if (part.match(/(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)/)) {
+          // 주소와 업체명이 함께 있는 경우 분리
+          const addressMatch = part.match(/([가-힣\s\d\-\.]+(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)[가-힣\s\d\-\.]*)\s*(.+)?/);
+          if (addressMatch) {
+            result.하차지주소 = addressMatch[1].trim();
+            if (addressMatch[2]) {
+              result.하차지명 = addressMatch[2].trim();
+            }
+            Logger.log("하차지 슬래시 분리 - 주소:", result.하차지주소, "업체명:", result.하차지명);
+          } else {
+            result.하차지주소 = part;
+          }
+        } else {
+          // 주소 패턴이 없으면 업체명으로
+          result.하차지명 = part;
+          Logger.log("하차지 업체명 추출:", result.하차지명);
+        }
+      }
+    } else {
+      // 슬래시가 없으면 주소와 업체명이 함께 있는 경우
+      const addressPattern = /([가-힣\s\d\-\.]+(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)[가-힣\s\d\-\.]*)\s*(.+)/;
+      const match = 하차지전체.match(addressPattern);
+      if (match && match[1] && match[2]) {
+        result.하차지주소 = match[1].trim();
+        result.하차지명 = match[2].trim();
+        Logger.log("하차지 분리 성공 - 주소:", result.하차지주소, "업체명:", result.하차지명);
+      } else {
+        // 주소 패턴이 없으면 전체를 업체명으로
+        if (!하차지전체.match(/(?:시|도|군|구|읍|면|동|리|로|길|번지|번길)/)) {
+          result.하차지명 = 하차지전체;
+        } else {
+          result.하차지주소 = 하차지전체;
+        }
+      }
+    }
+  }
+  
+  // 기존 방식으로도 시도 (위에서 추출되지 않은 경우)
+  if (!result.하차지주소) {
+    result.하차지주소 = extractAddress(text, [
+      "하차지 주소",
+      "하차지주소",
+      "하차지",
+      "도착지",
+      "착",
+      "착지",
+    ]);
+  }
+  
+  if (!result.하차지명) {
+    result.하차지명 = extractCompanyName(text, [
+      "하차지 업체명",
+      "하차지명",
+      "하차지",
+      "도착지",
+      "착",
+      "착지",
+    ]);
+  }
 
   // 요청톤수 추출 (다양한 형식 지원: 차량톤수 = 톤수 = 요청톤수)
   result.요청톤수 = extractTonnage(text, [
@@ -1072,18 +1161,20 @@ function parseTransportRequest(text, contractNo) {
   }
 
   // 고객사명 추출 (업체명, 고객사명 등)
+  // 주의: 상차지/하차지 업체명과 혼동하지 않도록 명확한 키워드만 사용
   result.고객사명 = extractValue(text, [
-    "업체명",
     "고객사명",
     "고객사",
   ]);
+  
+  // "업체명" 키워드는 상차지/하차지 업체명과 혼동될 수 있으므로 제외
 
   Logger.log("파싱 결과:", result);
   return result;
 }
 
 // 파싱 결과를 시트에 저장
-function insertToParsedSheet(parsedData, timestamp) {
+function insertToParsedSheet(parsedData, timestamp, originalContent) {
   try {
     const spreadsheet = getSpreadsheet();
     let parsedSheet = spreadsheet.getSheetByName("파싱결과");
@@ -1120,10 +1211,22 @@ function insertToParsedSheet(parsedData, timestamp) {
         "담당자명",
         "담당자연락처",
         "비고",
+        "원본데이터",
       ];
       
       parsedSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
       parsedSheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
+    } else {
+      // 기존 시트에 '원본데이터' 열이 없으면 추가
+      const headerRow = parsedSheet.getRange(1, 1, 1, parsedSheet.getLastColumn()).getValues()[0];
+      const 원본데이터열인덱스 = headerRow.findIndex(h => h && h.toString().trim() === "원본데이터");
+      
+      if (원본데이터열인덱스 === -1) {
+        // '원본데이터' 열이 없으면 마지막 열 다음에 추가
+        const lastColumn = parsedSheet.getLastColumn();
+        parsedSheet.getRange(1, lastColumn + 1).setValue("원본데이터");
+        parsedSheet.getRange(1, lastColumn + 1).setFontWeight("bold");
+      }
     }
 
     // 기존 데이터 확인하여 No. 생성
@@ -1158,6 +1261,7 @@ function insertToParsedSheet(parsedData, timestamp) {
       parsedData.담당자명 || "", // 담당자명
       parsedData.담당자연락처 || "", // 담당자연락처
       parsedData.비고 || "", // 비고
+      originalContent || "", // 원본데이터
     ];
 
     // 새 행 추가
@@ -1190,8 +1294,8 @@ function processRawData(content, contractNo, timestamp, sourceRow, sourceSheet) 
     const parsedData = parseTransportRequest(content, contractNo);
     Logger.log("파싱 결과:", parsedData);
 
-    // 파싱 결과 시트에 저장
-    const insertResult = insertToParsedSheet(parsedData, timestamp);
+    // 파싱 결과 시트에 저장 (원본 데이터도 함께 전달)
+    const insertResult = insertToParsedSheet(parsedData, timestamp, content);
     
     if (insertResult) {
       Logger.log("파싱 결과 저장 완료");
