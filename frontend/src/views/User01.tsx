@@ -4,7 +4,7 @@ import "../App.scss";
 import ci from "../assets/img/logo.svg";
 import "../assets/styles/user.scss";
 const User01 = () => {
-  const [contractNo, setContractNo] = useState("");
+  const [num, setNum] = useState("");
   const [content, setContent] = useState(`상차일 및 상차시간 : 
 상차지 담당자 / 연락처 : 
 상차지 주소 / 업체명 :  
@@ -22,10 +22,10 @@ const User01 = () => {
     // URL에서 계약 번호 파라미터 읽기
     const params = new URLSearchParams(window.location.search);
     const contractNoParam =
-      params.get("contractNo") || params.get("contract") || "";
+      params.get("num") || params.get("contract") || "";
 
     if (contractNoParam) {
-      setContractNo(contractNoParam);
+      setNum(contractNoParam);
     }
   }, []);
 
@@ -33,9 +33,9 @@ const User01 = () => {
   const handleSubmit = async (e: any) => {
     e.preventDefault();
 
-    if (!contractNo.trim()) {
+    if (!num.trim()) {
       alert(
-        "계약 번호가 없습니다. URL에 계약 번호를 포함해주세요. (예: ?contractNo=12345)"
+        "계약 번호가 없습니다. URL에 계약 번호를 포함해주세요. (예: ?num=12345)"
       );
       return;
     }
@@ -48,7 +48,7 @@ const User01 = () => {
     try {
       const formData = new FormData();
       // 계약 번호 필드 (구글 폼의 entry ID로 변경 필요)
-      formData.append("entry.1271596132", contractNo);
+      formData.append("entry.1271596132", num);
       // 배차 요청 내용 필드 (구글 폼의 entry ID로 변경 필요)
       formData.append("entry.1285765036", content);
 
@@ -91,7 +91,7 @@ const User01 = () => {
                   <label>운송 계약 번호</label>
                   <input
                     type="text"
-                    value={contractNo}
+                    value={num}
                     disabled
                     placeholder="자동 기입"
                   />
@@ -120,7 +120,7 @@ const User01 = () => {
               <div id="submittedData" className="card">
                 <div className="rows row_01">
                   <h3>운송계약번호</h3>
-                  <p>{contractNo || "미입력"}</p>
+                  <p>{num || "미입력"}</p>
                 </div>
                 <div className="rows row_02">
                   <h3>배차 요청 내용</h3>

@@ -4,7 +4,7 @@ import "../assets/styles/user.scss";
 // @ts-ignore
 import ci from "../assets/img/logo.svg";
 const User02 = () => {
-  const [contractNo, setContractNo] = useState("");
+  const [num, setNum] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   // 구글 폼 필드들
@@ -24,10 +24,10 @@ const User02 = () => {
     // URL에서 계약 번호 파라미터 읽기
     const params = new URLSearchParams(window.location.search);
     const contractNoParam =
-      params.get("contractNo") || params.get("contract") || "";
+      params.get("num") || params.get("contract") || "";
 
     if (contractNoParam) {
-      setContractNo(contractNoParam);
+      setNum(contractNoParam);
     }
 
     // 현재 날짜/시간을 기본값으로 설정
@@ -45,9 +45,9 @@ const User02 = () => {
   const handleSubmit = async (e: any) => {
     e.preventDefault();
 
-    if (!contractNo.trim()) {
+    if (!num.trim()) {
       alert(
-        "계약 번호가 없습니다. URL에 계약 번호를 포함해주세요. (예: ?contractNo=12345)"
+        "계약 번호가 없습니다. URL에 계약 번호를 포함해주세요. (예: ?num=12345)"
       );
       return;
     }
@@ -115,9 +115,9 @@ const User02 = () => {
       const [deliveryHour, deliveryMin] = deliveryTimePart.split(":");
 
       // 운송 계약 번호
-      if (contractNo.trim()) {
-        formData.append("entry.1027562716", contractNo);
-        console.log("계약번호 전송:", contractNo);
+      if (num.trim()) {
+        formData.append("entry.1027562716", num);
+        console.log("계약번호 전송:", num);
       }
 
       // 상차일 및 상차 시간
@@ -236,7 +236,7 @@ const User02 = () => {
                   </label>
                   <input
                     type="text"
-                    value={contractNo}
+                    value={num}
                     disabled
                     placeholder="자동 기입"
                     style={{
@@ -414,7 +414,7 @@ const User02 = () => {
               <div id="submittedData" className="card">
                 <div className="rows row_01">
                   <h3>운송 계약 번호</h3>
-                  <p>{contractNo || "미입력"}</p>
+                  <p>{num || "미입력"}</p>
                 </div>
                 <div className="rows">
                   <h3>상차일 및 상차 시간</h3>

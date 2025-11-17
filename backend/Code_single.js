@@ -128,11 +128,11 @@ function processFormResponse(sheet, row) {
 
     // 각 열 데이터 추출
     const timestamp = timestampIdx > -1 ? rowData[timestampIdx] : "";
-    const contractNo = contractNoIdx > -1 ? rowData[contractNoIdx] : "";
+    const num = contractNoIdx > -1 ? rowData[contractNoIdx] : "";
     const content = contentIdx > -1 ? rowData[contentIdx] : "";
     const status = statusIdx > -1 ? rowData[statusIdx] : "";
 
-    Logger.log("계약번호:", contractNo);
+    Logger.log("계약번호:", num);
     Logger.log("배차 요청 내용:", content);
 
     // 배차 요청 내용이 있는 경우만 처리
@@ -150,7 +150,7 @@ function processFormResponse(sheet, row) {
     }
 
     // 파싱 및 처리
-    processRawData(content.toString(), contractNo.toString(), timestamp, row, sheet);
+    processRawData(content.toString(), num.toString(), timestamp, row, sheet);
   } catch (error) {
     Logger.log("구글 폼 응답 처리 오류:", error);
 
@@ -840,12 +840,12 @@ function extractTonnage(text, keywords) {
 }
 
 // 배차 요청 텍스트 파싱 함수
-function parseTransportRequest(text, contractNo) {
+function parseTransportRequest(text, num) {
   Logger.log("=== 배차 요청 텍스트 파싱 시작 ===");
   Logger.log("원본 텍스트:", text);
 
   const result = {
-    운송계약번호: contractNo || "",
+    운송계약번호: num || "",
     고객사명: "",
     상차일자: "",
     하차일자: "",
@@ -1276,11 +1276,11 @@ function insertToParsedSheet(parsedData, timestamp, originalContent) {
 }
 
 // 원본 데이터 처리 함수
-function processRawData(content, contractNo, timestamp, sourceRow, sourceSheet) {
+function processRawData(content, num, timestamp, sourceRow, sourceSheet) {
   try {
     Logger.log("=== 배차 요청 데이터 처리 시작 ===");
     Logger.log("원본 텍스트:", content);
-    Logger.log("계약번호:", contractNo);
+    Logger.log("계약번호:", num);
 
     if (!content || content.trim() === "") {
       Logger.log("배차 요청 내용이 없어서 처리 중단");
@@ -1291,7 +1291,7 @@ function processRawData(content, contractNo, timestamp, sourceRow, sourceSheet) 
     }
 
     // 텍스트 파싱
-    const parsedData = parseTransportRequest(content, contractNo);
+    const parsedData = parseTransportRequest(content, num);
     Logger.log("파싱 결과:", parsedData);
 
     // 파싱 결과 시트에 저장 (원본 데이터도 함께 전달)
@@ -1384,7 +1384,7 @@ function processAllFormResponses() {
     for (let i = 1; i < data.length; i++) {
       const rowData = data[i];
       const timestamp = timestampIdx > -1 ? rowData[timestampIdx] : "";
-      const contractNo = contractNoIdx > -1 ? (rowData[contractNoIdx] || "") : "";
+      const num = contractNoIdx > -1 ? (rowData[contractNoIdx] || "") : "";
       const content = contentIdx > -1 ? (rowData[contentIdx] || "") : "";
       const processStatus = statusIdx > -1 ? (rowData[statusIdx] || "") : "";
 

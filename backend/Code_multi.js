@@ -249,7 +249,7 @@ function processFormResponse(sheet, row) {
 
     // 각 열 데이터 추출
     const timestamp = timestampIdx > -1 ? rowData[timestampIdx] : "";
-    const contractNo = contractNoIdx > -1 ? rowData[contractNoIdx] : "";
+    const num = contractNoIdx > -1 ? rowData[contractNoIdx] : "";
 
     // 상차일 및 상차 시간 추출 (분리된 컬럼 또는 단일 컬럼)
     let pickupYear = "";
@@ -336,7 +336,7 @@ function processFormResponse(sheet, row) {
     const note = noteIdx > -1 ? rowData[noteIdx] : "";
     const manualWork = manualWorkIdx > -1 ? rowData[manualWorkIdx] : "";
 
-    Logger.log("계약번호:", contractNo);
+    Logger.log("계약번호:", num);
     Logger.log("상차일:", pickupYear, pickupMonth, pickupDay, pickupHour, pickupMinute);
     Logger.log("하차일:", deliveryYear, deliveryMonth, deliveryDay, deliveryHour, deliveryMinute);
 
@@ -389,10 +389,10 @@ function processFormResponse(sheet, row) {
     }
 
     // 멀티 필드 데이터 파싱 및 처리
-    writeDebugLog("processMultiFieldData 호출 전", "계약번호:" + contractNo);
+    writeDebugLog("processMultiFieldData 호출 전", "계약번호:" + num);
     processMultiFieldData(
       {
-        contractNo: contractNo ? contractNo.toString() : "",
+        num: num ? num.toString() : "",
         pickupYear: pickupYear ? pickupYear.toString() : "",
         pickupMonth: pickupMonth ? pickupMonth.toString() : "",
         pickupDay: pickupDay ? pickupDay.toString() : "",
@@ -484,7 +484,7 @@ function parseMultiFieldData(fieldData) {
   const 담당자연락처 = deliveryContactParts.phone || pickupContactParts.phone || "";
 
   const result = {
-    운송계약번호: fieldData.contractNo || "",
+    운송계약번호: fieldData.num || "",
     고객사명: "",
     상차일자: pickupDate,
     하차일자: deliveryDate,

@@ -146,11 +146,11 @@ function processFormResponse(sheet, row) {
 
     // 각 열 데이터 추출
     const timestamp = timestampIdx > -1 ? rowData[timestampIdx] : "";
-    const contractNo = contractNoIdx > -1 ? rowData[contractNoIdx] : "";
+    const num = contractNoIdx > -1 ? rowData[contractNoIdx] : "";
     const content = contentIdx > -1 ? rowData[contentIdx] : "";
     const status = statusIdx > -1 ? rowData[statusIdx] : "";
 
-    Logger.log("계약번호:", contractNo);
+    Logger.log("계약번호:", num);
     Logger.log("배차 요청 내용:", content);
 
     // 배차 요청 내용이 있는 경우만 처리
@@ -168,7 +168,7 @@ function processFormResponse(sheet, row) {
     }
 
     // 파싱 및 처리
-    processRawData(content.toString(), contractNo.toString(), timestamp, row, sheet);
+    processRawData(content.toString(), num.toString(), timestamp, row, sheet);
   } catch (error) {
     Logger.log("구글 폼 응답 처리 오류:", error);
 
@@ -525,12 +525,12 @@ function extractTonnage(text, keywords) {
 }
 
 // 배차 요청 텍스트 파싱 함수
-function parseTransportRequest(text, contractNo) {
+function parseTransportRequest(text, num) {
   Logger.log("=== 배차 요청 텍스트 파싱 시작 ===");
   Logger.log("원본 텍스트:", text);
 
   const result = {
-    운송계약번호: contractNo || "",
+    운송계약번호: num || "",
     고객사명: "",
     상차일자: "",
     하차일자: "",
@@ -803,11 +803,11 @@ function insertToParsedSheet(parsedData, timestamp) {
 }
 
 // 원본 데이터 처리 함수 (파싱 모드에 따라 분기)
-function processRawData(content, contractNo, timestamp, sourceRow, sourceSheet) {
+function processRawData(content, num, timestamp, sourceRow, sourceSheet) {
   try {
     Logger.log("=== 배차 요청 데이터 처리 시작 ===");
     Logger.log("원본 텍스트:", content);
-    Logger.log("계약번호:", contractNo);
+    Logger.log("계약번호:", num);
     Logger.log("파싱 모드:", PARSING_MODE);
 
     if (!content || content.trim() === "") {
@@ -822,10 +822,10 @@ function processRawData(content, contractNo, timestamp, sourceRow, sourceSheet) 
     let parsedData;
     if (PARSING_MODE === "LLM") {
       Logger.log("LLM 파싱 모드 사용");
-      parsedData = parseTransportRequestWithLLM(content, contractNo);
+      parsedData = parseTransportRequestWithLLM(content, num);
     } else {
       Logger.log("키워드 기반 파싱 모드 사용");
-      parsedData = parseTransportRequest(content, contractNo);
+      parsedData = parseTransportRequest(content, num);
     }
     
     Logger.log("파싱 결과:", parsedData);
@@ -920,7 +920,7 @@ function processAllFormResponses() {
     for (let i = 1; i < data.length; i++) {
       const rowData = data[i];
       const timestamp = timestampIdx > -1 ? rowData[timestampIdx] : "";
-      const contractNo = contractNoIdx > -1 ? (rowData[contractNoIdx] || "") : "";
+      const num = contractNoIdx > -1 ? (rowData[contractNoIdx] || "") : "";
       const content = contentIdx > -1 ? (rowData[contentIdx] || "") : "";
       const processStatus = statusIdx > -1 ? (rowData[statusIdx] || "") : "";
 
@@ -1017,13 +1017,13 @@ function initializeFormResponseSheet() {
 // ============================================
 
 // LLM을 사용하여 배차 요청 텍스트 파싱
-function parseTransportRequestWithLLM(text, contractNo) {
+function parseTransportRequestWithLLM(text, num) {
   try {
     Logger.log("=== LLM 기반 배차 요청 텍스트 파싱 시작 ===");
     Logger.log("원본 텍스트:", text);
 
     // LLM 프롬프트 생성
-    const prompt = createParsingPrompt(text, contractNo);
+    const prompt = createParsingPrompt(text, num);
     
     // LLM 호출
     let llmResponse;
@@ -1035,11 +1035,11 @@ function parseTransportRequestWithLLM(text, contractNo) {
 
     if (!llmResponse) {
       Logger.log("LLM 응답이 없어서 키워드 기반 파싱으로 폴백");
-      return parseTransportRequest(text, contractNo);
+      return parseTransportRequest(text, num);
     }
 
     // LLM 응답 파싱
-    const parsedData = parseLLMResponse(llmResponse, contractNo);
+    const parsedData = parseLLMResponse(llmResponse, num);
     Logger.log("LLM 파싱 결과:", parsedData);
     
     return parsedData;
@@ -1047,12 +1047,12 @@ function parseTransportRequestWithLLM(text, contractNo) {
     Logger.log("LLM 파싱 오류:", error);
     Logger.log("키워드 기반 파싱으로 폴백");
     // 오류 발생 시 키워드 기반 파싱으로 폴백
-    return parseTransportRequest(text, contractNo);
+    return parseTransportRequest(text, num);
   }
 }
 
 // LLM 파싱용 프롬프트 생성
-function createParsingPrompt(text, contractNo) {
+function createParsingPrompt(text, num) {
   return `다음 배차 요청 텍스트를 분석하여 JSON 형식으로 구조화된 데이터를 추출해주세요.
 
 배차 요청 텍스트:
@@ -1061,7 +1061,7 @@ ${text}
 """
 
 다음 필드들을 추출하여 JSON 형식으로 반환해주세요:
-- 운송계약번호: ${contractNo || ""}
+- 운송계약번호: ${num || ""}
 - 고객사명: 업체명, 고객사명 등
 - 상차일자: 상차일, 상차일자, 배차일자, 배차일 등 (YYYY-MM-DD 형식으로 변환)
 - 하차일자: 하차일, 하차일자, 하차일 등 (YYYY-MM-DD 형식으로 변환)
@@ -1210,7 +1210,7 @@ function callGeminiAPI(prompt) {
 }
 
 // LLM 응답 파싱 (JSON 추출)
-function parseLLMResponse(llmResponse, contractNo) {
+function parseLLMResponse(llmResponse, num) {
   try {
     Logger.log("LLM 응답 파싱 시작");
     
@@ -1226,7 +1226,7 @@ function parseLLMResponse(llmResponse, contractNo) {
     
     // 결과 객체 생성
     const result = {
-      운송계약번호: parsed.운송계약번호 || contractNo || "",
+      운송계약번호: parsed.운송계약번호 || num || "",
       고객사명: parsed.고객사명 || "",
       상차일자: parsed.상차일자 || "",
       하차일자: parsed.하차일자 || "",
