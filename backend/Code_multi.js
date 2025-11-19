@@ -249,7 +249,7 @@ function processFormResponse(sheet, row) {
 
     // 각 열 데이터 추출
     const timestamp = timestampIdx > -1 ? rowData[timestampIdx] : "";
-    const num = contractNoIdx > -1 ? rowData[contractNoIdx] : "";
+    const contractNo = contractNoIdx > -1 ? rowData[contractNoIdx] : "";
 
     // 상차일 및 상차 시간 추출 (분리된 컬럼 또는 단일 컬럼)
     let pickupYear = "";
@@ -336,7 +336,7 @@ function processFormResponse(sheet, row) {
     const note = noteIdx > -1 ? rowData[noteIdx] : "";
     const manualWork = manualWorkIdx > -1 ? rowData[manualWorkIdx] : "";
 
-    Logger.log("계약번호:", num);
+    Logger.log("계약번호:", contractNo);
     Logger.log("상차일:", pickupYear, pickupMonth, pickupDay, pickupHour, pickupMinute);
     Logger.log("하차일:", deliveryYear, deliveryMonth, deliveryDay, deliveryHour, deliveryMinute);
 
@@ -389,10 +389,10 @@ function processFormResponse(sheet, row) {
     }
 
     // 멀티 필드 데이터 파싱 및 처리
-    writeDebugLog("processMultiFieldData 호출 전", "계약번호:" + num);
+    writeDebugLog("processMultiFieldData 호출 전", "계약번호:" + contractNo);
     processMultiFieldData(
       {
-        num: num ? num.toString() : "",
+        contractNo: contractNo ? contractNo.toString() : "",
         pickupYear: pickupYear ? pickupYear.toString() : "",
         pickupMonth: pickupMonth ? pickupMonth.toString() : "",
         pickupDay: pickupDay ? pickupDay.toString() : "",
@@ -484,7 +484,7 @@ function parseMultiFieldData(fieldData) {
   const 담당자연락처 = deliveryContactParts.phone || pickupContactParts.phone || "";
 
   const result = {
-    운송계약번호: fieldData.num || "",
+    운송계약번호: fieldData.contractNo || "",
     고객사명: "",
     상차일자: pickupDate,
     하차일자: deliveryDate,
@@ -535,28 +535,36 @@ function extractContactAndPhone(fullText) {
 
   const text = fullText.toString().trim();
 
-  // 전화번호 패턴
-  const phonePattern = /(\d{2,3}-\d{3,4}-\d{4}|\d{10,11})/;
+  // 전화번호 패턴 (특수문자 포함: 하이픈, 온점, 반점, 공백 등)
+  // 숫자와 특수문자가 섞인 패턴을 찾고, 나중에 숫자만 추출
+  const phonePattern = /([\d\s\-\.\,\(\)]{7,30})/;
   const phoneMatch = text.match(phonePattern);
 
   let phone = "";
   let name = "";
 
   if (phoneMatch) {
-    phone = phoneMatch[1];
-    // 전화번호 앞부분이 이름
-    const namePart = text.substring(0, phoneMatch.index).trim();
-    // 이름 패턴 추출 (한글 이름)
-    const namePattern = /([가-힣]{2,4})\s*(?:사원|과장|대리|차장|부장|대표|님)?/;
-    const nameMatch = namePart.match(namePattern);
+    // 특수문자 제거하고 숫자만 추출
+    const digitsOnly = phoneMatch[1].replace(/\D/g, '');
+    
+    // 숫자만 추출한 후 길이 확인 (7자 이상 20자 이하)
+    if (digitsOnly.length >= 7 && digitsOnly.length <= 20) {
+      phone = digitsOnly;
+      
+      // 전화번호 앞부분이 이름
+      const namePart = text.substring(0, phoneMatch.index).trim();
+      // 이름 패턴 추출 (한글 이름)
+      const namePattern = /([가-힣]{2,4})\s*(?:사원|과장|대리|차장|부장|대표|님)?/;
+      const nameMatch = namePart.match(namePattern);
 
-    if (nameMatch) {
-      name = nameMatch[1];
-    } else {
-      // 패턴이 없으면 공백으로 분리된 첫 번째 부분
-      const parts = namePart.split(/\s+/);
-      if (parts.length > 0) {
-        name = parts[0];
+      if (nameMatch) {
+        name = nameMatch[1];
+      } else {
+        // 패턴이 없으면 공백으로 분리된 첫 번째 부분
+        const parts = namePart.split(/\s+/);
+        if (parts.length > 0) {
+          name = parts[0];
+        }
       }
     }
   } else {
