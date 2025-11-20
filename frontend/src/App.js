@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import User01 from "./views/User01.tsx";
-import User02 from "./views/User02.tsx";
+import User01 from "./views/User01";
+import User02 from "./views/User02";
 
 function App() {
   return (
