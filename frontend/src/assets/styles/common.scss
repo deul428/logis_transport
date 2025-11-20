@@ -43,7 +43,7 @@
       text-align: left;
       color: $heading-color-2;
       span {
-        color: rgb(199, 27, 27);
+        color: #c71b1b;
       }
     }
     input {
@@ -52,6 +52,10 @@
         margin-bottom: 1rem;
       }
     }
+  }
+  input,
+  textarea {
+    font-family: inherit;
   }
   .card {
     padding: 1rem;
