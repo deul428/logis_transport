@@ -3,6 +3,7 @@
 @import "./_mixin.scss";
 
 .wrap {
+  caret-color: transparent;
   height: 100dvh;
   width: 100dvw;
   overflow: auto;
@@ -54,8 +55,10 @@
     }
   }
   input,
-  textarea {
+  textarea,
+  select {
     font-family: inherit;
+    caret-color: auto;
   }
   .card {
     padding: 1rem;

@@ -944,7 +944,8 @@ const User01Calc = () => {
             id="parsed_area"
             className="card mockup"
             style={{
-              display: isResultPanelVisible ? "none" : "block",
+              display: 'none',
+              // display: isResultPanelVisible ? "none" : "block",
               backgroundColor: "pink",
             }}
           >
